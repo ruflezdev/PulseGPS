@@ -1,7 +1,54 @@
-import React from "react";
-import { StyleSheet, Text, View, StatusBar } from "react-native";
+import React, { useEffect, useState } from "react";
+import { StyleSheet, Text, View, StatusBar, TouchableOpacity } from "react-native";
+import MapView, { Marker } from "react-native-maps";
+import { ref, get } from "firebase/database";
+import { db } from "./firebase";
+
+const usuariosDisponibles = ["usuario1", "usuario2", "usuario3", "usuario4"];
 
 export default function App() {
+  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(usuariosDisponibles[0]);
+  const [latitud, setLatitud] = useState<number | null>(null);
+  const [longitud, setLongitud] = useState<number | null>(null);
+  const [bateria, setBateria] = useState<number | null>(null);
+  const [ultimaActualizacion, setUltimaActualizacion] = useState<string>("Cargando...");
+
+  // Función para cargar datos desde Firebase según el usuario seleccionado
+  const cargarDatos = () => {
+    const coordsRef = ref(db, `pulseras/${usuarioSeleccionado}`);
+
+    get(coordsRef)
+      .then((snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          setLatitud(data.latitud);
+          setLongitud(data.longitud);
+          setBateria(data.bateria);
+          setUltimaActualizacion(new Date(data.timestamp).toLocaleString());
+        } else {
+          setLatitud(null);
+          setLongitud(null);
+          setBateria(null);
+          setUltimaActualizacion("No hay datos disponibles");
+        }
+      })
+      .catch((error) => {
+        console.error("Error al leer datos de Firebase:", error);
+        setUltimaActualizacion("Error al cargar datos");
+      });
+  };
+
+  useEffect(() => {
+    cargarDatos();
+  }, [usuarioSeleccionado]);
+
+  // Cambiar usuario seleccionado al pulsar botón
+  const cambiarUsuario = () => {
+    const indexActual = usuariosDisponibles.indexOf(usuarioSeleccionado);
+    const siguienteIndex = (indexActual + 1) % usuariosDisponibles.length;
+    setUsuarioSeleccionado(usuariosDisponibles[siguienteIndex]);
+  };
+
   return (
     <>
       <View style={styles.container}>
@@ -14,13 +61,39 @@ export default function App() {
             <Text>👤</Text>
           </View>
         </View>
-        
-        {/* Mapa Placeholder */}
+
+        {/* Botón para seleccionar pulsera */}
+        <TouchableOpacity style={styles.actionButton} onPress={cambiarUsuario}>
+          <Text style={styles.buttonText}>Preciona para la siguiente: r({usuarioSeleccionado})</Text>
+        </TouchableOpacity>
+
+        {/* Mapa */}
         <View style={styles.mapPlaceholder}>
-          <Text style={styles.mapText}>🗺️ Mapa aparecerá aquí</Text>
-          <View style={styles.markerPin}>
-            <Text style={styles.markerText}>📍</Text>
-          </View>
+          {latitud && longitud ? (
+            <MapView
+              style={styles.map}
+              initialRegion={{
+                latitude: latitud,
+                longitude: longitud,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+              region={{
+                latitude: latitud,
+                longitude: longitud,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+            >
+              <Marker
+                coordinate={{ latitude: latitud, longitude: longitud }}
+                title="Pulsera GPS"
+                description={`Lat: ${latitud.toFixed(5)}, Lon: ${longitud.toFixed(5)}`}
+              />
+            </MapView>
+          ) : (
+            <Text style={styles.mapText}>🗺️ Mapa aparecerá aquí</Text>
+          )}
         </View>
 
         {/* Tarjeta de Estado */}
@@ -28,39 +101,40 @@ export default function App() {
           <Text style={styles.cardTitle}>Estado de la Pulsera</Text>
 
           <View style={styles.statusRow}>
-            <View style={styles.statusIndicator} />
-            <Text style={styles.statusText}>Conectado</Text>
+            <View
+              style={[
+                styles.statusIndicator,
+                bateria !== null && bateria > 20
+                  ? { backgroundColor: "#2ECC71" }
+                  : { backgroundColor: "#E74C3C" },
+              ]}
+            />
+            <Text style={styles.statusText}>
+              {bateria !== null && bateria > 20 ? "Conectado" : "Batería baja"}
+            </Text>
           </View>
 
           <View style={styles.detailGrid}>
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Batería</Text>
-              <Text style={styles.detailValue}>85%</Text>
+              <Text style={styles.detailValue}>{bateria !== null ? `${bateria}%` : "-"}</Text>
             </View>
 
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Última actualización</Text>
-              <Text style={styles.detailValue}>
-                Hace 2 min
-              </Text>
+              <Text style={styles.detailValue}>{ultimaActualizacion}</Text>
             </View>
           </View>
         </View>
 
-        {/* Botón de acción */}
-        <View style={styles.actionButton}>
+        {/* Botón para actualizar datos manualmente */}
+        <TouchableOpacity style={styles.actionButton} onPress={cargarDatos}>
           <Text style={styles.buttonText}>Actualizar ubicación</Text>
-        </View>
+        </TouchableOpacity>
       </View>
+
       <View>
-        <Text
-          style={{
-            textAlign: "center",
-            marginTop: 5,
-            padding: 50,
-            color: "#7F8C8D",
-          }}
-        >
+        <Text style={{ textAlign: "center", marginTop: 5, padding: 50, color: "#7F8C8D" }}>
           © 2025 PulseGPS. Todos los derechos reservados.
         </Text>
       </View>
@@ -96,24 +170,18 @@ const styles = StyleSheet.create({
   },
   mapPlaceholder: {
     height: 250,
-    backgroundColor: "#D6DBDF",
     margin: 16,
     borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
+    overflow: "hidden",
   },
   mapText: {
     fontSize: 16,
     color: "#7F8C8D",
+    textAlign: "center",
+    paddingTop: 100,
   },
-  markerPin: {
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-  },
-  markerText: {
-    fontSize: 24,
+  map: {
+    flex: 1,
   },
   statusCard: {
     backgroundColor: "#fff",
@@ -169,6 +237,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginHorizontal: 16,
     alignItems: "center",
+    marginBottom: 10,
   },
   buttonText: {
     color: "#fff",
