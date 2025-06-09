@@ -1,60 +1,83 @@
 import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View, StatusBar, TouchableOpacity } from "react-native";
+import { StyleSheet, Text, View, StatusBar, TouchableOpacity, ActivityIndicator } from "react-native";
 import MapView, { Marker } from "react-native-maps";
-import { ref, get } from "firebase/database";
+import { ref, get, child } from "firebase/database";
 import { db } from "./firebase";
 
-const usuariosDisponibles = ["usuario1", "usuario2", "usuario3", "usuario4"];
-
 export default function App() {
-  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(usuariosDisponibles[0]);
+  const [usuariosDisponibles, setUsuariosDisponibles] = useState<string[]>([]);
+  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<string | null>(null);
   const [latitud, setLatitud] = useState<number | null>(null);
   const [longitud, setLongitud] = useState<number | null>(null);
   const [bateria, setBateria] = useState<number | null>(null);
   const [ultimaActualizacion, setUltimaActualizacion] = useState<string>("Cargando...");
+  const [loading, setLoading] = useState<boolean>(true);
 
-  // Función para cargar datos desde Firebase según el usuario seleccionado
-  const cargarDatos = () => {
-    const coordsRef = ref(db, `pulseras/${usuarioSeleccionado}`);
-
-    get(coordsRef)
-      .then((snapshot) => {
-        if (snapshot.exists()) {
-          const data = snapshot.val();
-          setLatitud(data.latitud);
-          setLongitud(data.longitud);
-          setBateria(data.bateria);
-          setUltimaActualizacion(new Date(data.timestamp).toLocaleString());
-        } else {
-          setLatitud(null);
-          setLongitud(null);
-          setBateria(null);
-          setUltimaActualizacion("No hay datos disponibles");
-        }
-      })
-      .catch((error) => {
-        console.error("Error al leer datos de Firebase:", error);
-        setUltimaActualizacion("Error al cargar datos");
-      });
+  const cargarUsuarios = async () => {
+    try {
+      const pulserasRef = ref(db, "pulseras");
+      const snapshot = await get(pulserasRef);
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const keys = Object.keys(data);
+        setUsuariosDisponibles(keys);
+        setUsuarioSeleccionado(keys[0] || null);
+      } else {
+        setUsuariosDisponibles([]);
+        setUsuarioSeleccionado(null);
+      }
+    } catch (error) {
+      console.error("Error al cargar usuarios:", error);
+    }
   };
 
-  useEffect(() => {
-    cargarDatos();
-  }, [usuarioSeleccionado]);
+  const cargarDatos = async () => {
+    if (!usuarioSeleccionado) return;
+    setLoading(true);
+    try {
+      const coordsRef = ref(db, `pulseras/${usuarioSeleccionado}`);
+      const snapshot = await get(coordsRef);
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        setLatitud(data.latitud);
+        setLongitud(data.longitud);
+        setBateria(data.bateria);
+        setUltimaActualizacion(new Date(data.timestamp).toLocaleString());
+      } else {
+        setLatitud(null);
+        setLongitud(null);
+        setBateria(null);
+        setUltimaActualizacion("No hay datos disponibles");
+      }
+    } catch (error) {
+      console.error("Error al leer datos de Firebase:", error);
+      setUltimaActualizacion("Error al cargar datos");
+    }
+    setLoading(false);
+  };
 
-  // Cambiar usuario seleccionado al pulsar botón
   const cambiarUsuario = () => {
+    if (!usuarioSeleccionado || usuariosDisponibles.length === 0) return;
     const indexActual = usuariosDisponibles.indexOf(usuarioSeleccionado);
     const siguienteIndex = (indexActual + 1) % usuariosDisponibles.length;
     setUsuarioSeleccionado(usuariosDisponibles[siguienteIndex]);
   };
+
+  useEffect(() => {
+    cargarUsuarios();
+  }, []);
+
+  useEffect(() => {
+    if (usuarioSeleccionado) {
+      cargarDatos();
+    }
+  }, [usuarioSeleccionado]);
 
   return (
     <>
       <View style={styles.container}>
         <StatusBar backgroundColor="#fff" barStyle="dark-content" />
 
-        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>PulseGPS</Text>
           <View style={styles.userBadge}>
@@ -62,75 +85,73 @@ export default function App() {
           </View>
         </View>
 
-        {/* Botón para seleccionar pulsera */}
-        <TouchableOpacity style={styles.actionButton} onPress={cambiarUsuario}>
-          <Text style={styles.buttonText}>Preciona para la siguiente: r({usuarioSeleccionado})</Text>
-        </TouchableOpacity>
+        {usuariosDisponibles.length > 0 && usuarioSeleccionado ? (
+          <>
+            <TouchableOpacity style={styles.actionButton} onPress={cambiarUsuario}>
+              <Text style={styles.buttonText}>Pulsera: ({usuarioSeleccionado}) — cambiar</Text>
+            </TouchableOpacity>
 
-        {/* Mapa */}
-        <View style={styles.mapPlaceholder}>
-          {latitud && longitud ? (
-            <MapView
-              style={styles.map}
-              initialRegion={{
-                latitude: latitud,
-                longitude: longitud,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              }}
-              region={{
-                latitude: latitud,
-                longitude: longitud,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              }}
-            >
-              <Marker
-                coordinate={{ latitude: latitud, longitude: longitud }}
-                title="Pulsera GPS"
-                description={`Lat: ${latitud.toFixed(5)}, Lon: ${longitud.toFixed(5)}`}
-              />
-            </MapView>
-          ) : (
-            <Text style={styles.mapText}>🗺️ Mapa aparecerá aquí</Text>
-          )}
-        </View>
-
-        {/* Tarjeta de Estado */}
-        <View style={styles.statusCard}>
-          <Text style={styles.cardTitle}>Estado de la Pulsera</Text>
-
-          <View style={styles.statusRow}>
-            <View
-              style={[
-                styles.statusIndicator,
-                bateria !== null && bateria > 20
-                  ? { backgroundColor: "#2ECC71" }
-                  : { backgroundColor: "#E74C3C" },
-              ]}
-            />
-            <Text style={styles.statusText}>
-              {bateria !== null && bateria > 20 ? "Conectado" : "Batería baja"}
-            </Text>
-          </View>
-
-          <View style={styles.detailGrid}>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Batería</Text>
-              <Text style={styles.detailValue}>{bateria !== null ? `${bateria}%` : "-"}</Text>
+            <View style={styles.mapPlaceholder}>
+              {latitud && longitud ? (
+                <MapView
+                  style={styles.map}
+                  region={{
+                    latitude: latitud,
+                    longitude: longitud,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                  }}
+                >
+                  <Marker
+                    coordinate={{ latitude: latitud, longitude: longitud }}
+                    title="Pulsera GPS"
+                    description={`Lat: ${latitud.toFixed(5)}, Lon: ${longitud.toFixed(5)}`}
+                  />
+                </MapView>
+              ) : (
+                <Text style={styles.mapText}>🗺️ Sin ubicación válida</Text>
+              )}
             </View>
 
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Última actualización</Text>
-              <Text style={styles.detailValue}>{ultimaActualizacion}</Text>
-            </View>
-          </View>
-        </View>
+            <View style={styles.statusCard}>
+              <Text style={styles.cardTitle}>Estado de la Pulsera</Text>
 
-        {/* Botón para actualizar datos manualmente */}
-        <TouchableOpacity style={styles.actionButton} onPress={cargarDatos}>
-          <Text style={styles.buttonText}>Actualizar ubicación</Text>
-        </TouchableOpacity>
+              <View style={styles.statusRow}>
+                <View
+                  style={[
+                    styles.statusIndicator,
+                    bateria !== null && bateria > 20
+                      ? { backgroundColor: "#2ECC71" }
+                      : { backgroundColor: "#E74C3C" },
+                  ]}
+                />
+                <Text style={styles.statusText}>
+                  {bateria !== null && bateria > 20 ? "Conectado" : "Batería baja"}
+                </Text>
+              </View>
+
+              <View style={styles.detailGrid}>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Batería</Text>
+                  <Text style={styles.detailValue}>{bateria !== null ? `${bateria}%` : "-"}</Text>
+                </View>
+
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Última actualización</Text>
+                  <Text style={styles.detailValue}>{ultimaActualizacion}</Text>
+                </View>
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.actionButton} onPress={cargarDatos}>
+              <Text style={styles.buttonText}>Actualizar ubicación</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <Text style={{ textAlign: "center", marginTop: 40, fontSize: 16 }}>
+            {loading ? <ActivityIndicator size="large" /> : "No se encontraron pulseras"}
+          </Text>
+        )}
       </View>
 
       <View>
@@ -205,7 +226,6 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: "#2ECC71",
     marginRight: 8,
   },
   statusText: {
