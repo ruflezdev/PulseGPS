@@ -22,12 +22,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: width * 0.10,
   },
-  logo: {
-    marginBottom: 16,
-    alignSelf: "center",
-    width: 80,
-    height: 80,
-  },
+
   title: {
     fontSize: 24,
     fontWeight: "bold",
