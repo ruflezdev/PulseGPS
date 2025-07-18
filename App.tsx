@@ -11,8 +11,6 @@ const Tab = createBottomTabNavigator();
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = React.useState(false);
 
-  // Aquí podrías usar un listener de Firebase Auth para actualizar isLoggedIn
-
   if (!isLoggedIn) {
     return <LoginScreen setIsLoggedIn={setIsLoggedIn} />;
   }

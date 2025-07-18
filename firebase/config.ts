@@ -1,7 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
 
-// Configuración de Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyDFxl7PAmnaUckuBIpvMIuY24q_NtW8MJA",
   authDomain: "pulsegps.firebaseapp.com",
@@ -12,8 +11,6 @@ const firebaseConfig = {
   appId: "1:190543823804:web:6b369d5af6ca25d6a761b9",
 };
 
-// Inicializar Firebase
 const app = initializeApp(firebaseConfig);
 
-// Obtener referencia a la base de datos
 export const db = getDatabase(app);
