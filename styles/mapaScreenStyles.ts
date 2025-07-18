@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
   },
   infoContainer: {
     backgroundColor: COLORS.white,
-    borderRadius: 16,
+    borderRadius: 10,
     padding: 12,
     width: width * 0.92,
     maxWidth: 420,
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: COLORS.primary,
-    borderRadius: 20,
+    borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 22,
     position: "absolute",
