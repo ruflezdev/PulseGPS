@@ -36,6 +36,7 @@ export default function App() {
           component={MapaScreen}
           options={{ title: "Mapa" }}
         />
+
         <Tab.Screen name="Ajustes">
           {() => <AjustesScreen setIsLoggedIn={setIsLoggedIn} />}
         </Tab.Screen>

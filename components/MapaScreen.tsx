@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  ScrollView,
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import { ref, onValue } from "firebase/database";
@@ -59,6 +58,10 @@ export default function MapaScreen() {
   };
 
   const datosUsuario = usuarioSeleccionado && usuarios ? usuarios[usuarioSeleccionado] : null;
+  const gpsValido =
+    datosUsuario &&
+    datosUsuario.latitud !== 0 &&
+    datosUsuario.longitud !== 0;
 
   if (loading) {
     return (
@@ -75,7 +78,7 @@ export default function MapaScreen() {
       {usuarios && usuarioSeleccionado ? (
         <>
           <View style={{ flex: 1 }}>
-            {datosUsuario?.latitud && datosUsuario.longitud ? (
+            {gpsValido ? (
               <MapView
                 style={{ flex: 1 }}
                 region={{
@@ -105,11 +108,28 @@ export default function MapaScreen() {
               </MapView>
             ) : (
               <View style={styles.noLocation}>
-                <MaterialIcons name="location-off" size={50} color="#95a5a6" />
+                <MaterialIcons name="satellite-off" size={50} color="#95a5a6" />
                 <Text style={styles.noLocationText}>Sin señal GPS</Text>
+                <Text style={styles.infoText}>
+                  Última conexión:{" "}
+                  {datosUsuario?.timestamp
+                    ? new Date(datosUsuario.timestamp).toLocaleString()
+                    : "--"}
+                </Text>
               </View>
             )}
-            <View style={{ width: "100%", alignItems: "center", position: "absolute", bottom: 70, left: 0, right: 0, zIndex: 10 }}>
+
+            <View
+              style={{
+                width: "100%",
+                alignItems: "center",
+                position: "absolute",
+                bottom: 70,
+                left: 0,
+                right: 0,
+                zIndex: 10,
+              }}
+            >
               <View style={styles.infoContainer}>
                 <View style={styles.infoRow}>
                   <MaterialIcons name="battery-charging-full" size={24} color="#3498db" />
@@ -120,7 +140,10 @@ export default function MapaScreen() {
                 <View style={styles.infoRow}>
                   <MaterialIcons name="access-time" size={24} color="#3498db" />
                   <Text style={styles.infoText}>
-                    Actualizado: {datosUsuario?.timestamp ? new Date(datosUsuario.timestamp).toLocaleTimeString() : "--:--"}
+                    Actualizado:{" "}
+                    {datosUsuario?.timestamp
+                      ? new Date(datosUsuario.timestamp).toLocaleTimeString()
+                      : "--:--"}
                   </Text>
                 </View>
                 <View style={styles.infoRow}>
@@ -134,6 +157,7 @@ export default function MapaScreen() {
               </View>
             </View>
           </View>
+
           <TouchableOpacity style={styles.userSelector} onPress={cambiarUsuario}>
             <MaterialIcons name="watch" size={20} color="#fff" />
             <Text style={styles.userSelectorText}>{usuarioSeleccionado} ▼</Text>
